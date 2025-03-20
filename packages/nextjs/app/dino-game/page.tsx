@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { NextPage } from "next";
 import { useAccount } from "wagmi";
 import { Address } from "~~/components/scaffold-eth";
-import SimpleGame from "~~/components/dino-game/SimpleGame";
+import DinoGame from "~~/components/dino-game/DinoGame";
 import { useDeployedContractInfo } from "~~/hooks/scaffold-eth";
 
 const DinoGamePage: NextPage = () => {
@@ -28,7 +28,7 @@ const DinoGamePage: NextPage = () => {
   return (
     <>
       <div className="flex items-center flex-col flex-grow pt-10">
-        <div className="px-5 w-full max-w-3xl">
+        <div className="px-5 w-full max-w-5xl">
           <h1 className="text-center mb-6">
             <span className="block text-4xl font-bold">Dino Runner Game</span>
             <span className="block text-xl mt-1 opacity-70">Powered by Web3</span>
@@ -61,7 +61,7 @@ const DinoGamePage: NextPage = () => {
           )}
 
           {gameContractAddress && nftContractAddress ? (
-            <SimpleGame gameContractAddress={gameContractAddress} nftContractAddress={nftContractAddress} />
+            <DinoGame gameContractAddress={gameContractAddress} nftContractAddress={nftContractAddress} />
           ) : (
             <div className="alert alert-error shadow-lg max-w-2xl mx-auto">
               <div>

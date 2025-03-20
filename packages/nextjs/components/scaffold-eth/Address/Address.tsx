@@ -114,7 +114,7 @@ export const Address = ({
 
   if (!checkSumAddress) {
     return (
-      <div className="flex items-center">
+      <div className="flex items-center flex-shrink-0">
         <div
           className="flex-shrink-0 skeleton rounded-full"
           style={{

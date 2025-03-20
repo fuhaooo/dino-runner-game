@@ -7,6 +7,7 @@ This directory contains the assets needed for the Dino Game.
 Please add the following image files to this directory:
 
 1. **Dinosaur Images**:
+
    - `dino-run1.png` - First frame of running dinosaur
    - `dino-run2.png` - Second frame of running dinosaur
    - `dino-jump.png` - Jumping dinosaur

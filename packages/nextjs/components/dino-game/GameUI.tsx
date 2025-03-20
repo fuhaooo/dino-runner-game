@@ -1,6 +1,7 @@
-import React from 'react';
+import React from "react";
+import Image from "next/image";
+import { GameState } from "./GameEngine";
 import { Address, Balance } from "~~/components/scaffold-eth";
-import { GameState } from './GameEngine';
 
 interface GameUIProps {
   isConnected: boolean;
@@ -19,23 +20,17 @@ const GameUI: React.FC<GameUIProps> = ({
   isStartingGame,
   isLoading,
   handleStartGame,
-  handleJump
+  handleJump,
 }) => {
-  const { 
-    score, 
-    highScore, 
-    gameActive, 
-    gameOver,
-    achievements 
-  } = gameState;
+  const { score, highScore, gameActive, gameOver, achievements } = gameState;
 
   return (
     <div className="w-full max-w-4xl bg-base-200 rounded-lg shadow-lg p-6 mb-6">
       <h2 className="text-2xl font-bold mb-4 text-center flex items-center justify-center">
-        <img src="/assets/Dino/DinoRun1.png" alt="Dino" className="h-10 mr-2" />
+        <Image src="/assets/Dino/DinoRun1.png" alt="Dino" width={40} height={40} className="mr-2" priority />
         Dino Runner Game
       </h2>
-      
+
       {isConnected ? (
         <>
           <div className="flex justify-between mb-4">
@@ -48,10 +43,12 @@ const GameUI: React.FC<GameUIProps> = ({
               {connectedAddress && <Balance address={connectedAddress} />}
             </div>
           </div>
-          
+
           <div className="flex justify-between mb-4 bg-base-100 p-3 rounded-lg shadow-sm">
             <div>
-              <p className="font-bold">Current Score: <span className="text-xl">{score}</span></p>
+              <p className="font-bold">
+                Current Score: <span className="text-xl">{score}</span>
+              </p>
               <p>High Score: {highScore}</p>
             </div>
             <div>
@@ -63,13 +60,15 @@ const GameUI: React.FC<GameUIProps> = ({
               </div>
             </div>
           </div>
-          
-          <div className="rounded-lg overflow-hidden mb-4 relative shadow-md" 
-               style={{ 
-                 backgroundImage: "url('/assets/DinoWallpaper.png')", 
-                 backgroundSize: 'cover', 
-                 backgroundPosition: 'center' 
-               }}>
+
+          <div
+            className="rounded-lg overflow-hidden mb-4 relative shadow-md"
+            style={{
+              backgroundImage: "url('/assets/DinoWallpaper.png')",
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+            }}
+          >
             {isLoading && (
               <div className="absolute inset-0 flex items-center justify-center bg-base-100 bg-opacity-80 z-10">
                 <div className="flex flex-col items-center bg-base-200 p-6 rounded-lg shadow-lg">
@@ -78,14 +77,21 @@ const GameUI: React.FC<GameUIProps> = ({
                 </div>
               </div>
             )}
-            
+
             {/* Canvas container - actual canvas is rendered in the parent component */}
             <div className="relative" id="canvas-container">
               {/* Game Over Screen */}
               {gameOver && (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="bg-base-100 bg-opacity-90 p-6 rounded-lg shadow-lg text-center">
-                    <img src="/assets/Other/GameOver.png" alt="Game Over" className="h-16 mx-auto mb-4" />
+                    <Image
+                      src="/assets/Other/GameOver.png"
+                      alt="Game Over"
+                      width={64}
+                      height={64}
+                      className="mx-auto mb-4"
+                      priority
+                    />
                     <p className="text-2xl font-bold mb-2">Score: {score}</p>
                     {score > 0 && score >= 100 && (
                       <div className="my-2">
@@ -97,38 +103,42 @@ const GameUI: React.FC<GameUIProps> = ({
                         </div>
                       </div>
                     )}
-                    <button
-                      className="btn btn-primary mt-4"
-                      onClick={handleStartGame}
-                    >
+                    <button className="btn btn-primary mt-4" onClick={handleStartGame}>
                       Try Again
                     </button>
                   </div>
                 </div>
               )}
-              
+
               {/* Start Game UI */}
               {!gameActive && !isStartingGame && !gameOver && (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="bg-base-100 bg-opacity-90 p-6 rounded-lg shadow-lg text-center">
-                    <img src="/assets/Dino/DinoStart.png" alt="Dino" className="h-24 mx-auto mb-4" />
+                    <Image
+                      src="/assets/Dino/DinoStart.png"
+                      alt="Dino"
+                      width={96}
+                      height={96}
+                      className="mx-auto mb-4"
+                      priority
+                    />
                     <h2 className="text-2xl font-bold mb-2">Ready to Run?</h2>
                     <p className="mb-4">Avoid obstacles and earn achievements!</p>
-                    <button
-                      className="btn btn-primary"
-                      onClick={handleStartGame}
-                      disabled={isStartingGame}
-                    >
+                    <button className="btn btn-primary" onClick={handleStartGame} disabled={isStartingGame}>
                       Start Game (0.01 MON)
                     </button>
                     <div className="mt-4 text-sm">
-                      <p><kbd className="kbd kbd-sm">SPACE</kbd> or <kbd className="kbd kbd-sm">↑</kbd> to Jump</p>
-                      <p><kbd className="kbd kbd-sm">↓</kbd> to Duck</p>
+                      <p>
+                        <kbd className="kbd kbd-sm">SPACE</kbd> or <kbd className="kbd kbd-sm">↑</kbd> to Jump
+                      </p>
+                      <p>
+                        <kbd className="kbd kbd-sm">↓</kbd> to Duck
+                      </p>
                     </div>
                   </div>
                 </div>
               )}
-              
+
               {/* Loading Game UI */}
               {isStartingGame && (
                 <div className="absolute inset-0 flex items-center justify-center">
@@ -141,7 +151,7 @@ const GameUI: React.FC<GameUIProps> = ({
               )}
             </div>
           </div>
-          
+
           <div className="flex justify-center mb-4">
             {gameActive && (
               <div className="text-center bg-base-100 p-3 rounded-lg shadow-md">
@@ -163,11 +173,11 @@ const GameUI: React.FC<GameUIProps> = ({
               </div>
             )}
           </div>
-          
+
           <div className="mt-4 bg-base-100 p-4 rounded-lg shadow-md">
             <h3 className="font-bold mb-2">Achievements</h3>
             <div className="grid grid-cols-3 gap-4">
-              <div className={`p-3 rounded-lg ${achievements.bronze ? 'bg-amber-100' : 'bg-base-300'}`}>
+              <div className={`p-3 rounded-lg ${achievements.bronze ? "bg-amber-100" : "bg-base-300"}`}>
                 <div className="flex items-center gap-2">
                   <span className="text-2xl">🥉</span>
                   <div>
@@ -176,7 +186,7 @@ const GameUI: React.FC<GameUIProps> = ({
                   </div>
                 </div>
               </div>
-              <div className={`p-3 rounded-lg ${achievements.silver ? 'bg-slate-100' : 'bg-base-300'}`}>
+              <div className={`p-3 rounded-lg ${achievements.silver ? "bg-slate-100" : "bg-base-300"}`}>
                 <div className="flex items-center gap-2">
                   <span className="text-2xl">🥈</span>
                   <div>
@@ -185,7 +195,7 @@ const GameUI: React.FC<GameUIProps> = ({
                   </div>
                 </div>
               </div>
-              <div className={`p-3 rounded-lg ${achievements.gold ? 'bg-yellow-100' : 'bg-base-300'}`}>
+              <div className={`p-3 rounded-lg ${achievements.gold ? "bg-yellow-100" : "bg-base-300"}`}>
                 <div className="flex items-center gap-2">
                   <span className="text-2xl">🥇</span>
                   <div>
@@ -199,7 +209,7 @@ const GameUI: React.FC<GameUIProps> = ({
         </>
       ) : (
         <div className="text-center py-8 bg-base-100 rounded-lg shadow-md">
-          <img src="/assets/Dino/DinoStart.png" alt="Dino" className="h-24 mx-auto mb-4" />
+          <Image src="/assets/Dino/DinoStart.png" alt="Dino" width={96} height={96} className="mx-auto mb-4" priority />
           <h2 className="text-2xl font-bold mb-4">Connect Your Wallet to Play</h2>
           <p className="mb-4">This game requires a connected wallet and 0.01 MON to play.</p>
           <p className="text-sm opacity-70 max-w-md mx-auto">

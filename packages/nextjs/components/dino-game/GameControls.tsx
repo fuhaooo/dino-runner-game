@@ -1,5 +1,5 @@
-import React, { useEffect, useCallback } from 'react';
-import { JUMP_VELOCITY } from './GameEngine';
+import React, { useCallback, useEffect } from "react";
+import { JUMP_VELOCITY } from "./GameEngine";
 
 interface GameControlsProps {
   gameActive: boolean;
@@ -16,7 +16,7 @@ const GameControls: React.FC<GameControlsProps> = ({
   setIsJumping,
   setIsDucking,
   setDinoVelocity,
-  canvasRef
+  canvasRef,
 }) => {
   // Handle jump action - memoize to prevent recreating on each render
   const handleJump = useCallback(() => {
@@ -42,28 +42,28 @@ const GameControls: React.FC<GameControlsProps> = ({
   // Set up keyboard event listeners
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.code === 'Space' || e.code === 'ArrowUp') && gameActive) {
+      if ((e.code === "Space" || e.code === "ArrowUp") && gameActive) {
         e.preventDefault();
         handleJump();
-      } else if (e.code === 'ArrowDown' && gameActive) {
+      } else if (e.code === "ArrowDown" && gameActive) {
         e.preventDefault();
         handleDuckStart();
       }
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.code === 'ArrowDown' && gameActive) {
+      if (e.code === "ArrowDown" && gameActive) {
         e.preventDefault();
         handleDuckEnd();
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
 
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
     };
   }, [gameActive, isJumping, handleJump, handleDuckStart, handleDuckEnd]);
 
@@ -73,7 +73,7 @@ const GameControls: React.FC<GameControlsProps> = ({
     if (!canvas) return;
 
     let touchStartY = 0;
-    
+
     const handleTouchStart = (e: TouchEvent) => {
       e.preventDefault();
       if (gameActive) {
@@ -106,20 +106,20 @@ const GameControls: React.FC<GameControlsProps> = ({
 
     // Ensure canvas exists before adding event listeners
     if (canvas) {
-      canvas.addEventListener('touchstart', handleTouchStart);
-      canvas.addEventListener('touchmove', handleTouchMove);
-      canvas.addEventListener('touchend', handleTouchEnd);
+      canvas.addEventListener("touchstart", handleTouchStart);
+      canvas.addEventListener("touchmove", handleTouchMove);
+      canvas.addEventListener("touchend", handleTouchEnd);
 
       // Clean up listeners when component unmounts
       return () => {
-        canvas.removeEventListener('touchstart', handleTouchStart);
-        canvas.removeEventListener('touchmove', handleTouchMove);
-        canvas.removeEventListener('touchend', handleTouchEnd);
+        canvas.removeEventListener("touchstart", handleTouchStart);
+        canvas.removeEventListener("touchmove", handleTouchMove);
+        canvas.removeEventListener("touchend", handleTouchEnd);
       };
     }
-    
-    // Return empty cleanup function if canvas doesn't exist
-    return () => {};
+
+    // Return cleanup function if canvas doesn't exist
+    return undefined;
   }, [gameActive, canvasRef, handleJump, handleDuckStart, handleDuckEnd]);
 
   return null; // This component doesn't render anything

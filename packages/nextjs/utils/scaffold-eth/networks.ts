@@ -1,5 +1,5 @@
-import * as chains from "viem/chains";
 import { monad, monadTestnet } from "../monad";
+import * as chains from "viem/chains";
 import scaffoldConfig from "~~/scaffold.config";
 
 type ChainAttributes = {

@@ -3,12 +3,11 @@
 import { useEffect, useState } from "react";
 import type { NextPage } from "next";
 import { useAccount } from "wagmi";
-import { Address } from "~~/components/scaffold-eth";
 import DinoGame from "~~/components/dino-game/DinoGame";
 import { useDeployedContractInfo } from "~~/hooks/scaffold-eth";
 
 const DinoGamePage: NextPage = () => {
-  const { address: connectedAddress, isConnected } = useAccount();
+  const { isConnected } = useAccount();
   const [gameContractAddress, setGameContractAddress] = useState<string>("");
   const [nftContractAddress, setNftContractAddress] = useState<string>("");
 
@@ -38,7 +37,9 @@ const DinoGamePage: NextPage = () => {
           {isConnected ? (
             <div key="connected" className="mb-8 text-center">
               <p className="mb-2">Ready to play? Start the game to begin your dino adventure!</p>
-              <p className="text-sm opacity-70">Each game costs 0.01 MON. Earn achievements as NFTs based on your score.</p>
+              <p className="text-sm opacity-70">
+                Each game costs 0.01 MON. Earn achievements as NFTs based on your score.
+              </p>
             </div>
           ) : (
             <div key="not-connected" className="alert alert-warning mb-8 max-w-2xl mx-auto">
@@ -88,10 +89,11 @@ const DinoGamePage: NextPage = () => {
             <h2 className="text-xl font-bold mb-4">How to Play</h2>
             <ol className="list-decimal list-inside space-y-2 ml-2">
               <li>Connect your wallet to the Monad testnet</li>
-              <li>Click "Start Game" and approve the 0.01 MON transaction</li>
+              <li>Click &quot;Start Game&quot; and approve the 0.01 MON transaction</li>
               <li>Press SPACE or UP ARROW key to make the dino jump over obstacles</li>
               <li>Avoid obstacles and collect points</li>
-              <li>Reach score thresholds to earn exclusive NFT achievements:
+              <li>
+                Reach score thresholds to earn exclusive NFT achievements:
                 <ul className="list-disc list-inside ml-6 mt-1">
                   <li>Score 100+ points: Bronze Achievement NFT</li>
                   <li>Score 300+ points: Silver Achievement NFT</li>

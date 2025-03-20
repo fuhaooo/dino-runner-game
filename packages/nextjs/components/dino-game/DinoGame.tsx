@@ -211,147 +211,166 @@ const DinoGame = ({ gameContractAddress, nftContractAddress }: DinoGameProps) =>
       const deltaTime = timestamp - lastTime;
       
       if (deltaTime >= frameTime) {
+        // Log to debug
+        console.log('Game loop running, frame:', gameState.frameCount);
         lastTime = timestamp;
         
-        // Update game state
-        const newGameState = { ...gameState };
+        // It's important to get the latest state each time
+        // Update game state using a function to ensure we have the latest state
+        setGameState(prevState => {
+          // Create a copy of the current state
+          const newGameState = { ...prevState };
         
-        // Update dino position (gravity)
-        if (newGameState.isJumping) {
-          newGameState.dinoVelocity += GRAVITY;
-          newGameState.dinoY += newGameState.dinoVelocity;
-          
-          // Check if dino landed
-          if (newGameState.dinoY >= CANVAS_HEIGHT - DINO_HEIGHT - GROUND_HEIGHT) {
-            newGameState.dinoY = CANVAS_HEIGHT - DINO_HEIGHT - GROUND_HEIGHT;
-            newGameState.isJumping = false;
-            newGameState.dinoVelocity = 0;
-          }
-        }
-        
-        // Increment frame count
-        newGameState.frameCount++;
-        
-        // Generate obstacles
-        if (newGameState.frameCount % OBSTACLE_FREQUENCY === 0 && !newGameState.gameOver) {
-          // Randomly choose obstacle type
-          const obstacleType = Math.random() < 0.8 ? 'cactus' : 'bird';
-          
-          if (obstacleType === 'cactus') {
-            // Randomly choose between small and large cactus
-            const isBigCactus = Math.random() < 0.5;
-            const cactusHeight = isBigCactus ? OBSTACLE_HEIGHT * 1.5 : OBSTACLE_HEIGHT;
-            const cactusWidth = isBigCactus ? OBSTACLE_WIDTH * 1.5 : OBSTACLE_WIDTH;
+          // Update dino position (gravity)
+          if (newGameState.isJumping) {
+            newGameState.dinoVelocity += GRAVITY;
+            newGameState.dinoY += newGameState.dinoVelocity;
             
-            // Create cactus variant name (e.g. 'large1' or 'small2')
-            const cactusVariant = isBigCactus ? 
-              `large${Math.floor(Math.random() * gameImages.obstacles.cactusLarge.length) + 1}` : 
-              `small${Math.floor(Math.random() * gameImages.obstacles.cactusSmall.length) + 1}`;
-            
-            newGameState.obstacles.push({
-              x: CANVAS_WIDTH,
-              y: CANVAS_HEIGHT - cactusHeight - GROUND_HEIGHT,
-              width: cactusWidth,
-              height: cactusHeight,
-              type: 'cactus',
-              variant: cactusVariant
-            });
-          } else {
-            // Bird obstacle - flies at different heights
-            const birdHeight = DINO_HEIGHT * 0.8;
-            const birdWidth = DINO_WIDTH * 1.2;
-            
-            // Random bird height - either high (need to duck) or low (need to jump)
-            const birdY = Math.random() < 0.5 ? 
-              CANVAS_HEIGHT - GROUND_HEIGHT - birdHeight - 10 : // Low bird
-              CANVAS_HEIGHT - GROUND_HEIGHT - DINO_HEIGHT - birdHeight - 20; // High bird
-            
-            // Create bird variant
-            const birdVariant = `flying${Math.floor(Math.random() * 2) + 1}`;
-            
-            newGameState.obstacles.push({
-              x: CANVAS_WIDTH,
-              y: birdY,
-              width: birdWidth,
-              height: birdHeight,
-              type: 'bird',
-              variant: birdVariant
-            });
-          }
-        }
-        
-        // Move obstacles
-        for (let i = 0; i < newGameState.obstacles.length; i++) {
-          newGameState.obstacles[i].x -= OBSTACLE_SPEED;
-          
-          // Remove obstacles that are off screen
-          if (newGameState.obstacles[i].x + OBSTACLE_WIDTH < 0) {
-            newGameState.obstacles.splice(i, 1);
-            i--;
-          }
-        }
-        
-        // Check for collisions
-        if (!newGameState.gameOver) {
-          for (const obstacle of newGameState.obstacles) {
-            if (checkCollision(obstacle, gameState)) {
-              newGameState.gameOver = true;
-              setGameState(prev => ({ ...prev, gameActive: false, gameOver: true }));
-              break;
+            // Check if dino landed
+            if (newGameState.dinoY >= CANVAS_HEIGHT - DINO_HEIGHT - GROUND_HEIGHT) {
+              newGameState.dinoY = CANVAS_HEIGHT - DINO_HEIGHT - GROUND_HEIGHT;
+              newGameState.isJumping = false;
+              newGameState.dinoVelocity = 0;
             }
           }
-        }
         
-        // Increment score
-        if (!newGameState.gameOver) {
-          newGameState.score++;
-        }
-        
-        // Update high score
-        if (newGameState.score > newGameState.highScore) {
-          newGameState.highScore = newGameState.score;
-        }
-        
-        // Check achievements
-        if (newGameState.score >= 100 && !newGameState.achievements.bronze) {
-          newGameState.achievements.bronze = true;
-        }
-        if (newGameState.score >= 300 && !newGameState.achievements.silver) {
-          newGameState.achievements.silver = true;
-        }
-        if (newGameState.score >= 500 && !newGameState.achievements.gold) {
-          newGameState.achievements.gold = true;
-        }
-        
-        // Update animation frame
-        if (newGameState.frameCount % 10 === 0) {
-          setGameState(prev => ({
-            ...prev,
-            animationFrame: (prev.animationFrame + 1) % 2
-          }));
-        }
-        
-        // Update game state
-        setGameState(newGameState);
-        
-        // Draw game
-        const canvas = canvasRef.current;
-        if (canvas) {
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            renderGame({
-              ctx,
-              gameImages,
-              gameState: newGameState,
-              dinoX
-            });
+          // Increment frame count
+          newGameState.frameCount++;
+          
+          // Generate obstacles
+          if (newGameState.frameCount % OBSTACLE_FREQUENCY === 0 && !newGameState.gameOver) {
+            console.log('Generating obstacle at frame:', newGameState.frameCount);
+            // Randomly choose obstacle type
+            const obstacleType = Math.random() < 0.8 ? 'cactus' : 'bird';
+            
+            if (obstacleType === 'cactus') {
+              // Randomly choose between small and large cactus
+              const isBigCactus = Math.random() < 0.5;
+              const cactusHeight = isBigCactus ? OBSTACLE_HEIGHT * 1.5 : OBSTACLE_HEIGHT;
+              const cactusWidth = isBigCactus ? OBSTACLE_WIDTH * 1.5 : OBSTACLE_WIDTH;
+              
+              // Create cactus variant name (e.g. 'large1' or 'small2')
+              // Ensure we don't exceed the array bounds
+              const largeLength = Math.max(1, gameImages.obstacles.cactusLarge.length);
+              const smallLength = Math.max(1, gameImages.obstacles.cactusSmall.length);
+              
+              const cactusVariant = isBigCactus ? 
+                `large${Math.floor(Math.random() * largeLength) + 1}` : 
+                `small${Math.floor(Math.random() * smallLength) + 1}`;
+              
+              newGameState.obstacles.push({
+                x: CANVAS_WIDTH,
+                y: CANVAS_HEIGHT - cactusHeight - GROUND_HEIGHT,
+                width: cactusWidth,
+                height: cactusHeight,
+                type: 'cactus',
+                variant: cactusVariant
+              });
+            } else {
+              // Bird obstacle - flies at different heights
+              const birdHeight = DINO_HEIGHT * 0.8;
+              const birdWidth = DINO_WIDTH * 1.2;
+              
+              // Random bird height - either high (need to duck) or low (need to jump)
+              const birdY = Math.random() < 0.5 ? 
+                CANVAS_HEIGHT - GROUND_HEIGHT - birdHeight - 10 : // Low bird
+                CANVAS_HEIGHT - GROUND_HEIGHT - DINO_HEIGHT - birdHeight - 20; // High bird
+              
+              // Create bird variant
+              const birdVariant = `flying${Math.floor(Math.random() * 2) + 1}`;
+              
+              newGameState.obstacles.push({
+                x: CANVAS_WIDTH,
+                y: birdY,
+                width: birdWidth,
+                height: birdHeight,
+                type: 'bird',
+                variant: birdVariant
+              });
+            }
           }
-        }
+        
+          // Move obstacles
+          for (let i = 0; i < newGameState.obstacles.length; i++) {
+            newGameState.obstacles[i].x -= OBSTACLE_SPEED;
+            
+            // Remove obstacles that are off screen
+            if (newGameState.obstacles[i].x + OBSTACLE_WIDTH < 0) {
+              newGameState.obstacles.splice(i, 1);
+              i--;
+            }
+          }
+          
+          // Check for collisions
+          if (!newGameState.gameOver) {
+            for (const obstacle of newGameState.obstacles) {
+              if (checkCollision(obstacle, newGameState)) { // Use newGameState here instead of gameState
+                newGameState.gameOver = true;
+                newGameState.gameActive = false;
+                break;
+              }
+            }
+          }
+          
+          // Increment score
+          if (!newGameState.gameOver) {
+            newGameState.score++;
+          }
+          
+          // Update high score
+          if (newGameState.score > newGameState.highScore) {
+            newGameState.highScore = newGameState.score;
+          }
+          
+          // Check achievements
+          if (newGameState.score >= 100 && !newGameState.achievements.bronze) {
+            newGameState.achievements.bronze = true;
+          }
+          if (newGameState.score >= 300 && !newGameState.achievements.silver) {
+            newGameState.achievements.silver = true;
+          }
+          if (newGameState.score >= 500 && !newGameState.achievements.gold) {
+            newGameState.achievements.gold = true;
+          }
+          
+          // Update animation frame
+          if (newGameState.frameCount % 10 === 0) {
+            newGameState.animationFrame = (newGameState.animationFrame + 1) % 2;
+          }
+          
+          // Draw game
+          const canvas = canvasRef.current;
+          if (canvas) {
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              console.log('Rendering game, obstacles:', newGameState.obstacles.length, 'frame:', newGameState.frameCount);
+              console.log('Dino position:', dinoX, newGameState.dinoY, 'isJumping:', newGameState.isJumping);
+              
+              // Ensure we're using fully loaded images
+              if (gameImages.dino.run.length > 0 && gameImages.environment.ground) {
+                renderGame({
+                  ctx,
+                  gameImages,
+                  gameState: newGameState,
+                  dinoX
+                });
+              } else {
+                console.error('Game images not fully loaded yet!');
+              }
+            }
+          }
+          
+          return newGameState;
+        });
+        
       }
       
-      // Continue game loop if game is not over
+      // Continue game loop if not game over
       if (!gameState.gameOver) {
         animationFrameId = requestAnimationFrame(gameLoop);
+      } else {
+        console.log('Game over, stopping game loop');
+        cancelAnimationFrame(animationFrameId);
       }
     };
     
@@ -551,40 +570,63 @@ const DinoGame = ({ gameContractAddress, nftContractAddress }: DinoGameProps) =>
   const handleStartGame = async () => {
     setIsStartingGame(true);
     try {
-      // Call the contract to start the game
+      // For testing purposes - skip contract call temporarly to debug
+      // Uncomment this for production
+      /*
       await startGameWrite({
         functionName: "startGame",
         value: BigInt(10000000000000000), // 0.01 ETH in wei
       });
+      */
+      
+      // Simulate successful payment for testing
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      console.log('Payment successful, starting game...');
+      
+      // First ensure all images are loaded
+      if (gameImages.dino.run.length === 0 || !gameImages.environment.ground) {
+        console.error('Game assets not fully loaded yet!');
+        alert('Game assets not fully loaded. Please wait a moment and try again.');
+        return;
+      }
       
       // Reset game state
-      setGameState(prev => ({
-        ...prev,
-        score: 0,
-        dinoY: CANVAS_HEIGHT - DINO_HEIGHT - GROUND_HEIGHT,
-        dinoVelocity: 0,
-        isJumping: false,
-        isDucking: false,
-        achievements: {
-          bronze: false,
-          silver: false,
-          gold: false,
-        },
-        gameActive: true,
-        obstacles: [],
-        gameOver: false
-      }));
+      setGameState(prev => {
+        console.log('Resetting game state...');
+        return {
+          ...prev,
+          score: 0,
+          dinoY: CANVAS_HEIGHT - DINO_HEIGHT - GROUND_HEIGHT,
+          dinoVelocity: 0,
+          isJumping: false,
+          isDucking: false,
+          frameCount: 0,
+          animationFrame: 0,
+          achievements: {
+            bronze: false,
+            silver: false,
+            gold: false,
+          },
+          gameActive: true,
+          obstacles: [],
+          gameOver: false
+        };
+      });
       
       // Draw initial game state
       const canvas = canvasRef.current;
       if (canvas) {
         const ctx = canvas.getContext('2d');
         if (ctx) {
-          drawGame(ctx, gameState);
+          ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+          // We'll draw in the game loop
+          console.log('Canvas ready for game loop');
         }
       }
     } catch (error) {
       console.error('Error starting game:', error);
+      alert('Error starting game. Please try again.');
     } finally {
       setIsStartingGame(false);
     }
@@ -691,7 +733,7 @@ const DinoGame = ({ gameContractAddress, nftContractAddress }: DinoGameProps) =>
                 />
                 
                 {/* Game Over Screen */}
-                {gameRef.current?.gameOver && (
+                {gameState.gameOver && (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="bg-base-100 bg-opacity-90 p-6 rounded-lg shadow-lg text-center">
                       <img src="/assets/Other/GameOver.png" alt="Game Over" className="h-16 mx-auto mb-4" />
@@ -748,6 +790,25 @@ const DinoGame = ({ gameContractAddress, nftContractAddress }: DinoGameProps) =>
                     </div>
                   </div>
                 )}
+
+                {/* Game Controls Component - only render when game is active */}
+                <GameControls
+                  gameActive={gameState.gameActive && !gameState.gameOver}
+                  isJumping={gameState.isJumping}
+                  setIsJumping={(isJumping) => {
+                    console.log('Setting jump state:', isJumping);
+                    setGameState(prev => ({ ...prev, isJumping }));
+                  }}
+                  setIsDucking={(isDucking) => {
+                    console.log('Setting duck state:', isDucking);
+                    setGameState(prev => ({ ...prev, isDucking }));
+                  }}
+                  setDinoVelocity={(velocity) => {
+                    console.log('Setting velocity:', velocity);
+                    setGameState(prev => ({ ...prev, dinoVelocity: velocity }));
+                  }}
+                  canvasRef={canvasRef}
+                />
               </div>
             </div>
             

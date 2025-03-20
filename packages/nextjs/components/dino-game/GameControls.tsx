@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { JUMP_VELOCITY } from './GameEngine';
 
 interface GameControlsProps {
@@ -7,7 +7,7 @@ interface GameControlsProps {
   setIsJumping: (isJumping: boolean) => void;
   setIsDucking: (isDucking: boolean) => void;
   setDinoVelocity: (velocity: number) => void;
-  canvasRef: React.RefObject<HTMLCanvasElement>;
+  canvasRef: React.RefObject<HTMLCanvasElement | null>;
 }
 
 const GameControls: React.FC<GameControlsProps> = ({
@@ -18,26 +18,26 @@ const GameControls: React.FC<GameControlsProps> = ({
   setDinoVelocity,
   canvasRef
 }) => {
-  // Handle jump action
-  const handleJump = () => {
+  // Handle jump action - memoize to prevent recreating on each render
+  const handleJump = useCallback(() => {
     if (!isJumping && gameActive) {
       setIsJumping(true);
       setDinoVelocity(-JUMP_VELOCITY);
     }
-  };
+  }, [gameActive, isJumping, setIsJumping, setDinoVelocity]);
 
-  // Handle duck action
-  const handleDuckStart = () => {
+  // Handle duck action - memoize to prevent recreating on each render
+  const handleDuckStart = useCallback(() => {
     if (gameActive) {
       setIsDucking(true);
     }
-  };
+  }, [gameActive, setIsDucking]);
 
-  const handleDuckEnd = () => {
+  const handleDuckEnd = useCallback(() => {
     if (gameActive) {
       setIsDucking(false);
     }
-  };
+  }, [gameActive, setIsDucking]);
 
   // Set up keyboard event listeners
   useEffect(() => {
@@ -65,7 +65,7 @@ const GameControls: React.FC<GameControlsProps> = ({
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [gameActive, isJumping]);
+  }, [gameActive, isJumping, handleJump, handleDuckStart, handleDuckEnd]);
 
   // Set up touch event listeners for mobile
   useEffect(() => {
@@ -104,16 +104,23 @@ const GameControls: React.FC<GameControlsProps> = ({
       }
     };
 
-    canvas.addEventListener('touchstart', handleTouchStart);
-    canvas.addEventListener('touchmove', handleTouchMove);
-    canvas.addEventListener('touchend', handleTouchEnd);
+    // Ensure canvas exists before adding event listeners
+    if (canvas) {
+      canvas.addEventListener('touchstart', handleTouchStart);
+      canvas.addEventListener('touchmove', handleTouchMove);
+      canvas.addEventListener('touchend', handleTouchEnd);
 
-    return () => {
-      canvas.removeEventListener('touchstart', handleTouchStart);
-      canvas.removeEventListener('touchmove', handleTouchMove);
-      canvas.removeEventListener('touchend', handleTouchEnd);
-    };
-  }, [gameActive, canvasRef]);
+      // Clean up listeners when component unmounts
+      return () => {
+        canvas.removeEventListener('touchstart', handleTouchStart);
+        canvas.removeEventListener('touchmove', handleTouchMove);
+        canvas.removeEventListener('touchend', handleTouchEnd);
+      };
+    }
+    
+    // Return empty cleanup function if canvas doesn't exist
+    return () => {};
+  }, [gameActive, canvasRef, handleJump, handleDuckStart, handleDuckEnd]);
 
   return null; // This component doesn't render anything
 };

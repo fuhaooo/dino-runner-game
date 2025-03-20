@@ -371,14 +371,14 @@ const DinoGame = ({ gameContractAddress, nftContractAddress }: DinoGameProps) =>
             newGameState.highScore = newGameState.score;
           }
           
-          // Check achievements
-          if (newGameState.score >= 100 && !newGameState.achievements.bronze) {
+          // Check achievements with increased score requirements
+          if (newGameState.score >= 5000 && !newGameState.achievements.bronze) {
             newGameState.achievements.bronze = true;
           }
-          if (newGameState.score >= 300 && !newGameState.achievements.silver) {
+          if (newGameState.score >= 10000 && !newGameState.achievements.silver) {
             newGameState.achievements.silver = true;
           }
-          if (newGameState.score >= 500 && !newGameState.achievements.gold) {
+          if (newGameState.score >= 15000 && !newGameState.achievements.gold) {
             newGameState.achievements.gold = true;
           }
           
@@ -906,7 +906,7 @@ const DinoGame = ({ gameContractAddress, nftContractAddress }: DinoGameProps) =>
                     <span className="text-2xl">🥉</span>
                     <div>
                       <p className="font-bold">Bronze</p>
-                      <p className="text-xs">Score 100+ points</p>
+                      <p className="text-xs">Score 5,000+ points</p>
                     </div>
                   </div>
                 </div>
@@ -915,7 +915,7 @@ const DinoGame = ({ gameContractAddress, nftContractAddress }: DinoGameProps) =>
                     <span className="text-2xl">🥈</span>
                     <div>
                       <p className="font-bold">Silver</p>
-                      <p className="text-xs">Score 300+ points</p>
+                      <p className="text-xs">Score 10,000+ points</p>
                     </div>
                   </div>
                 </div>
@@ -924,7 +924,7 @@ const DinoGame = ({ gameContractAddress, nftContractAddress }: DinoGameProps) =>
                     <span className="text-2xl">🥇</span>
                     <div>
                       <p className="font-bold">Gold</p>
-                      <p className="text-xs">Score 500+ points</p>
+                      <p className="text-xs">Score 15,000+ points</p>
                     </div>
                   </div>
                 </div>

@@ -237,7 +237,7 @@ export const updateGameState = (
   
   // Generate new obstacle
   let newObstacles = [...obstacles];
-  if (newFrameCount % OBSTACLE_FREQUENCY === 0) {
+  if (newFrameCount % INITIAL_OBSTACLE_FREQUENCY === 0) {
     newObstacles.push(generateObstacle(gameImages));
   }
   
@@ -245,7 +245,7 @@ export const updateGameState = (
   newObstacles = newObstacles
     .map(obstacle => ({
       ...obstacle,
-      x: obstacle.x - OBSTACLE_SPEED
+      x: obstacle.x - INITIAL_OBSTACLE_SPEED
     }))
     .filter(obstacle => obstacle.x > -obstacle.width); // Remove off-screen obstacles
   

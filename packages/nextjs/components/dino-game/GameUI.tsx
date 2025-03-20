@@ -172,7 +172,7 @@ const GameUI: React.FC<GameUIProps> = ({
                   <span className="text-2xl">🥉</span>
                   <div>
                     <p className="font-bold">Bronze</p>
-                    <p className="text-xs">Score 100+ points</p>
+                    <p className="text-xs">Score 5,000+ points</p>
                   </div>
                 </div>
               </div>
@@ -181,7 +181,7 @@ const GameUI: React.FC<GameUIProps> = ({
                   <span className="text-2xl">🥈</span>
                   <div>
                     <p className="font-bold">Silver</p>
-                    <p className="text-xs">Score 300+ points</p>
+                    <p className="text-xs">Score 10,000+ points</p>
                   </div>
                 </div>
               </div>
@@ -190,7 +190,7 @@ const GameUI: React.FC<GameUIProps> = ({
                   <span className="text-2xl">🥇</span>
                   <div>
                     <p className="font-bold">Gold</p>
-                    <p className="text-xs">Score 500+ points</p>
+                    <p className="text-xs">Score 15,000+ points</p>
                   </div>
                 </div>
               </div>

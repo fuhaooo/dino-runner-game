@@ -1,0 +1,1078 @@
+"use client";
+
+import React, { useEffect, useRef, useState } from "react";
+import Image from "next/image";
+import { useAccount, useContractWrite, useContractRead, usePublicClient, useWalletClient } from "wagmi";
+import { parseEther } from "viem";
+import { Address, Balance } from "~~/components/scaffold-eth";
+import { notification } from "~~/utils/scaffold-eth";
+import deployedContracts from "~~/contracts/deployedContracts";
+
+// Game configuration
+const GAME_GRAVITY = 0.9;
+const GAME_SPEED = 6;
+const CANVAS_WIDTH = 800;
+const CANVAS_HEIGHT = 300;
+const DINO_WIDTH = 40;
+const DINO_HEIGHT = 60;
+const OBSTACLE_WIDTH = 30;
+const OBSTACLE_HEIGHT = 50;
+const GROUND_HEIGHT = 20;
+const JUMP_VELOCITY = 12; // 跳跃初始速度
+const GAME_FEE = 0.01; // MON
+
+// 游戏资源路径
+const ASSETS_PATH = "/assets";
+
+// 预加载图片
+const loadImage = (src: string): Promise<HTMLImageElement> => {
+  return new Promise((resolve, reject) => {
+    const img = new window.Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+};
+
+// 游戏资源
+const GAME_ASSETS = {
+  dino: {
+    run: [
+      `${ASSETS_PATH}/Dino/DinoRun1.png`,
+      `${ASSETS_PATH}/Dino/DinoRun2.png`,
+    ],
+    jump: `${ASSETS_PATH}/Dino/DinoJump.png`,
+    duck: [
+      `${ASSETS_PATH}/Dino/DinoDuck1.png`,
+      `${ASSETS_PATH}/Dino/DinoDuck2.png`,
+    ],
+    dead: `${ASSETS_PATH}/Dino/DinoDead.png`,
+    start: `${ASSETS_PATH}/Dino/DinoStart.png`,
+  },
+  obstacles: {
+    smallCactus: [
+      `${ASSETS_PATH}/Cactus/SmallCactus1.png`,
+      `${ASSETS_PATH}/Cactus/SmallCactus2.png`,
+      `${ASSETS_PATH}/Cactus/SmallCactus3.png`,
+    ],
+    largeCactus: [
+      `${ASSETS_PATH}/Cactus/LargeCactus1.png`,
+      `${ASSETS_PATH}/Cactus/LargeCactus2.png`,
+      `${ASSETS_PATH}/Cactus/LargeCactus3.png`,
+    ],
+    bird: [
+      `${ASSETS_PATH}/Bird/Bird1.png`,
+      `${ASSETS_PATH}/Bird/Bird2.png`,
+    ],
+  },
+  other: {
+    cloud: `${ASSETS_PATH}/Other/Cloud.png`,
+    ground: `${ASSETS_PATH}/Other/Track.png`,
+    gameOver: `${ASSETS_PATH}/Other/GameOver.png`,
+    restart: `${ASSETS_PATH}/Other/Reset.png`,
+  },
+};
+
+interface DinoGameProps {
+  gameContractAddress: string;
+  nftContractAddress: string;
+}
+
+const DinoGame = ({ gameContractAddress, nftContractAddress }: DinoGameProps) => {
+  const { address: connectedAddress, isConnected } = useAccount();
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [gameActive, setGameActive] = useState(false);
+  const [score, setScore] = useState(0);
+  const [highScore, setHighScore] = useState(0);
+  const [hasStartedGame, setHasStartedGame] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [achievements, setAchievements] = useState<{ bronze: boolean; silver: boolean; gold: boolean }>({
+    bronze: false,
+    silver: false,
+    gold: false,
+  });
+
+  // 获取 Monad Testnet 链 ID
+  const monadTestnetChainId = 10143;
+  
+  // 获取合约 ABI
+  const gameManagerAbi = deployedContracts[monadTestnetChainId]?.DinoGameManager?.abi || [];
+  const nftAbi = deployedContracts[monadTestnetChainId]?.DinoAchievementNFT?.abi || [];
+  
+  // 检查合约地址和 ABI
+  useEffect(() => {
+    console.log("Game contract address:", gameContractAddress);
+    console.log("NFT contract address:", nftContractAddress);
+    console.log("Game Manager ABI available:", gameManagerAbi.length > 0);
+    console.log("NFT ABI available:", nftAbi.length > 0);
+  }, [gameContractAddress, nftContractAddress, gameManagerAbi, nftAbi]);
+
+  // Web3 interactions - 使用 wagmi 的 hooks
+  const { data: walletClient } = useWalletClient();
+  const publicClient = usePublicClient();
+  
+  // 确保 publicClient 和 walletClient 可用
+  useEffect(() => {
+    console.log("Wallet client available:", !!walletClient);
+    console.log("Public client available:", !!publicClient);
+  }, [walletClient, publicClient]);
+  
+  // 准备合约交互函数
+  const startGame = async () => {
+    if (!walletClient || !gameContractAddress) {
+      throw new Error("Wallet or contract not available");
+    }
+    
+    const hash = await walletClient.writeContract({
+      address: gameContractAddress as `0x${string}`,
+      abi: gameManagerAbi,
+      functionName: "startGame",
+      value: parseEther("0.01"),
+    });
+    
+    return hash;
+  };
+  
+  const recordScore = async (score: bigint) => {
+    if (!walletClient || !gameContractAddress) {
+      throw new Error("Wallet or contract not available");
+    }
+    
+    const hash = await walletClient.writeContract({
+      address: gameContractAddress as `0x${string}`,
+      abi: gameManagerAbi,
+      functionName: "recordScore",
+      args: [score],
+    });
+    
+    return hash;
+  };
+  
+  // 跟踪游戏开始和记录分数的加载状态
+  const [isStartingGame, setIsStartingGame] = useState(false);
+  const [isRecordingScore, setIsRecordingScore] = useState(false);
+
+  // Get player's high score from the contract
+  const { data: contractHighScore, refetch: refetchHighScore } = useContractRead({
+    address: gameContractAddress as `0x${string}`,
+    abi: gameManagerAbi,
+    functionName: "getPlayerHighScore",
+    args: [connectedAddress || "0x0000000000000000000000000000000000000000"],
+    query: {
+      enabled: isConnected && gameContractAddress !== "",
+    }
+  });
+
+  // Get achievement status
+  const { data: hasBronze, refetch: refetchBronze } = useContractRead({
+    address: nftContractAddress as `0x${string}`,
+    abi: nftAbi,
+    functionName: "hasClaimedAchievement",
+    args: [connectedAddress || "0x0000000000000000000000000000000000000000", 1n],
+    query: {
+      enabled: isConnected && nftContractAddress !== "",
+    }
+  });
+
+  const { data: hasSilver, refetch: refetchSilver } = useContractRead({
+    address: nftContractAddress as `0x${string}`,
+    abi: nftAbi,
+    functionName: "hasClaimedAchievement",
+    args: [connectedAddress || "0x0000000000000000000000000000000000000000", 2n],
+    query: {
+      enabled: isConnected && nftContractAddress !== "",
+    }
+  });
+
+  const { data: hasGold, refetch: refetchGold } = useContractRead({
+    address: nftContractAddress as `0x${string}`,
+    abi: nftAbi,
+    functionName: "hasClaimedAchievement",
+    args: [connectedAddress || "0x0000000000000000000000000000000000000000", 3n],
+    query: {
+      enabled: isConnected && nftContractAddress !== "",
+    }
+  });
+
+  // Update local achievements state based on contract data
+  useEffect(() => {
+    if (hasBronze !== undefined && hasSilver !== undefined && hasGold !== undefined) {
+      setAchievements({
+        bronze: hasBronze,
+        silver: hasSilver,
+        gold: hasGold,
+      });
+    }
+  }, [hasBronze, hasSilver, hasGold]);
+
+  // Update high score from contract
+  useEffect(() => {
+    if (contractHighScore) {
+      setHighScore(Number(contractHighScore));
+    }
+  }, [contractHighScore]);
+
+  // Handle starting game with payment
+  const handleStartGame = async () => {
+    try {
+      if (!isConnected) {
+        notification.warning("Please connect your wallet first");
+        return;
+      }
+
+      console.log("Starting game with contract address:", gameContractAddress);
+      
+      // 先设置游戏状态为准备开始
+      setHasStartedGame(true);
+      setIsStartingGame(true);
+      
+      // 调用合约方法，支付 0.01 MON
+      try {
+        const txHash = await startGame();
+        console.log("Transaction submitted:", txHash);
+        notification.success("Game started! Transaction submitted.");
+        
+        // 等待交易确认
+        if (publicClient) {
+          const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+          console.log("Transaction confirmed:", receipt);
+        } else {
+          console.log("Public client not available, cannot wait for transaction receipt");
+        }
+      } catch (error: any) {
+        console.error("Transaction error:", error);
+        notification.error("Failed to start game: " + (error.message || String(error)));
+        setHasStartedGame(false); // 重置游戏状态
+      } finally {
+        setIsStartingGame(false);
+      }
+    } catch (error: any) {
+      console.error("Error starting game:", error);
+      notification.error("Failed to start game: " + (error instanceof Error ? error.message : String(error)));
+      setHasStartedGame(false); // 重置游戏状态
+      setIsStartingGame(false);
+    }
+  };
+
+  // 游戏资源状态
+  const [assetsLoaded, setAssetsLoaded] = useState(false);
+  const [gameImages, setGameImages] = useState<Record<string, any>>({});
+  
+  // 加载游戏资源
+  useEffect(() => {
+    const loadAssets = async () => {
+      try {
+        setIsLoading(true);
+        
+        const images: Record<string, any> = {
+          dino: {
+            run: [],
+            jump: null,
+            duck: [],
+            dead: null,
+            start: null,
+          },
+          obstacles: {
+            smallCactus: [],
+            largeCactus: [],
+            bird: [],
+          },
+          other: {
+            cloud: null,
+            ground: null,
+            gameOver: null,
+            restart: null,
+          },
+        };
+        
+        // 加载恐龙图片
+        console.log("Loading dino images...");
+        for (const src of GAME_ASSETS.dino.run) {
+          images.dino.run.push(await loadImage(src));
+        }
+        images.dino.jump = await loadImage(GAME_ASSETS.dino.jump);
+        for (const src of GAME_ASSETS.dino.duck) {
+          images.dino.duck.push(await loadImage(src));
+        }
+        
+        // 加载额外的恐龙图片
+        images.dino.dead = await loadImage(GAME_ASSETS.dino.dead);
+        images.dino.start = await loadImage(GAME_ASSETS.dino.start);
+        
+        // 加载障碍物图片
+        console.log("Loading obstacle images...");
+        for (const src of GAME_ASSETS.obstacles.smallCactus) {
+          images.obstacles.smallCactus.push(await loadImage(src));
+        }
+        for (const src of GAME_ASSETS.obstacles.largeCactus) {
+          images.obstacles.largeCactus.push(await loadImage(src));
+        }
+        for (const src of GAME_ASSETS.obstacles.bird) {
+          images.obstacles.bird.push(await loadImage(src));
+        }
+        
+        // 加载其他图片
+        console.log("Loading other images...");
+        images.other.cloud = await loadImage(GAME_ASSETS.other.cloud);
+        images.other.ground = await loadImage(GAME_ASSETS.other.ground);
+        
+        // 加载额外的UI图片
+        images.other.gameOver = await loadImage(GAME_ASSETS.other.gameOver);
+        images.other.restart = await loadImage(GAME_ASSETS.other.restart);
+        
+        setGameImages(images);
+        setAssetsLoaded(true);
+        setIsLoading(false);
+        console.log("Game assets loaded successfully");
+      } catch (error) {
+        console.error("Failed to load game assets:", error);
+        notification.error("Failed to load game assets");
+        setIsLoading(false);
+      }
+    };
+    
+    loadAssets();
+  }, []);
+
+  // Game variables
+  const gameRef = useRef({
+    dino: {
+      x: 80,
+      y: CANVAS_HEIGHT - DINO_HEIGHT - GROUND_HEIGHT,
+      width: DINO_WIDTH,
+      height: DINO_HEIGHT,
+      velocity: 0,
+      jumping: false,
+      ducking: false,
+      running: true,
+      stepIndex: 0,
+    },
+    obstacles: [] as { 
+      type: string; 
+      subType: number; 
+      x: number; 
+      y: number; 
+      width: number; 
+      height: number;
+      frameIndex?: number;
+    }[],
+    clouds: [] as {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    }[],
+    gameSpeed: GAME_SPEED,
+    score: 0,
+    animationFrame: 0,
+    backgroundX: 0,
+    lastTime: 0,
+    gameOver: false,
+  });
+
+  // Initialize game canvas
+  useEffect(() => {
+    if (canvasRef.current) {
+      const ctx = canvasRef.current.getContext("2d");
+      if (ctx) {
+        // Draw initial game state (just the ground and dino)
+        ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        
+        // Draw ground
+        ctx.fillStyle = "#333";
+        ctx.fillRect(0, CANVAS_HEIGHT - GROUND_HEIGHT, CANVAS_WIDTH, GROUND_HEIGHT);
+        
+        // Draw dino
+        ctx.fillStyle = "#4a9";
+        ctx.fillRect(
+          gameRef.current.dino.x, 
+          gameRef.current.dino.y, 
+          gameRef.current.dino.width, 
+          gameRef.current.dino.height
+        );
+        
+        // Draw instruction text
+        ctx.fillStyle = "#000";
+        ctx.font = "20px Arial";
+        ctx.fillText("Click 'Start Game' to play!", CANVAS_WIDTH / 2 - 120, CANVAS_HEIGHT / 2);
+      }
+    }
+  }, [canvasRef]);
+
+  // Start the game
+  useEffect(() => {
+    if (hasStartedGame && !gameActive) {
+      setGameActive(true);
+      setScore(0);
+      gameRef.current.score = 0;
+      gameRef.current.obstacles = [];
+      gameRef.current.clouds = [];
+      gameRef.current.gameSpeed = GAME_SPEED;
+      gameRef.current.backgroundX = 0;
+      
+      // 重置恐龙状态
+      gameRef.current.dino.y = CANVAS_HEIGHT - DINO_HEIGHT - GROUND_HEIGHT;
+      gameRef.current.dino.height = DINO_HEIGHT;
+      gameRef.current.dino.velocity = 0;
+      gameRef.current.dino.jumping = false;
+      gameRef.current.dino.ducking = false;
+      gameRef.current.dino.running = true;
+      gameRef.current.dino.stepIndex = 0;
+      
+      startGameLoop();
+    }
+  }, [hasStartedGame]);
+
+  // Handle game over
+  const gameOver = async () => {
+    setGameActive(false);
+    setHasStartedGame(false);
+    gameRef.current.gameOver = true;
+    
+    if (gameRef.current.score > 0) {
+      try {
+        setIsRecordingScore(true);
+        const finalScore = BigInt(Math.floor(gameRef.current.score));
+        
+        const txHash = await recordScore(finalScore);
+        console.log("Score recorded, transaction:", txHash);
+        
+        // 等待交易确认
+        if (publicClient) {
+          const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+          console.log("Transaction confirmed:", receipt);
+        } else {
+          console.log("Public client not available, cannot wait for transaction receipt");
+        }
+        
+        // Refresh achievements and high score
+        refetchBronze();
+        refetchSilver();
+        refetchGold();
+        refetchHighScore();
+        
+        notification.success(`Game over! Score: ${Math.floor(gameRef.current.score)}`);
+      } catch (error: any) {
+        console.error("Error recording score:", error);
+        notification.error("Failed to record score: " + (error.message || String(error)));
+      } finally {
+        setIsRecordingScore(false);
+      }
+    }
+  };
+
+  const startGameLoop = () => {
+    if (!canvasRef.current || !assetsLoaded) return;
+    
+    const ctx = canvasRef.current.getContext("2d");
+    if (!ctx) return;
+    
+    const game = gameRef.current;
+    game.lastTime = 0;
+    
+    // 初始化云朵
+    if (game.clouds.length === 0) {
+      game.clouds.push({
+        x: CANVAS_WIDTH + Math.random() * 200,
+        y: Math.random() * 100 + 50,
+        width: 70,
+        height: 40,
+      });
+    }
+    
+    // Game animation loop
+    const gameLoop = (timestamp: number) => {
+      if (!canvasRef.current) return;
+      
+      const game = gameRef.current;
+      const deltaTime = timestamp - game.lastTime;
+      game.lastTime = timestamp;
+      
+      const ctx = canvasRef.current.getContext("2d");
+      if (!ctx) return;
+      
+      // Clear canvas
+      ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      
+      // 绘制背景和地面
+      drawBackground(ctx);
+      
+      // 更新和绘制恐龙
+      if (gameActive) {
+        updateDino();
+      }
+      drawDino(ctx);
+      
+      // 更新和绘制障碍物
+      if (gameActive) {
+        updateObstacles();
+      }
+      drawObstacles(ctx);
+      
+      // 更新和绘制云朵
+      if (gameActive) {
+        updateClouds();
+      }
+      drawClouds(ctx);
+      
+      // 绘制游戏结束画面
+      if (game.gameOver && gameImages.other?.gameOver) {
+        const gameOverImg = gameImages.other.gameOver;
+        ctx.drawImage(
+          gameOverImg,
+          CANVAS_WIDTH / 2 - gameOverImg.width / 2,
+          CANVAS_HEIGHT / 2 - gameOverImg.height / 2 - 50
+        );
+        
+        if (gameImages.other?.restart) {
+          const restartImg = gameImages.other.restart;
+          ctx.drawImage(
+            restartImg,
+            CANVAS_WIDTH / 2 - restartImg.width / 2,
+            CANVAS_HEIGHT / 2 - restartImg.height / 2 + 50
+          );
+        }
+        
+        // 显示最终分数
+        ctx.fillStyle = "#000";
+        ctx.font = "20px Arial";
+        ctx.fillText(`Final Score: ${Math.floor(game.score)}`, CANVAS_WIDTH / 2 - 80, CANVAS_HEIGHT / 2 + 10);
+      }
+      
+      // 检测碰撞
+      if (gameActive && checkCollisions()) {
+        gameOver();
+      }
+      
+      // 更新分数
+      if (gameActive) {
+        updateScore();
+      }
+      drawScore(ctx);
+      
+      // 请求下一帧
+      game.animationFrame = requestAnimationFrame(gameLoop);
+    }
+    };
+    
+    // 绘制背景
+    const drawBackground = (ctx: CanvasRenderingContext2D) => {
+      const game = gameRef.current;
+      // 绘制地面
+      if (gameImages.other?.ground) {
+        const groundImg = gameImages.other.ground;
+        const groundPattern = ctx.createPattern(groundImg, 'repeat-x');
+        
+        if (groundPattern) {
+          ctx.save();
+          ctx.translate(game.backgroundX, 0);
+          ctx.fillStyle = groundPattern;
+          ctx.fillRect(0, CANVAS_HEIGHT - GROUND_HEIGHT, CANVAS_WIDTH + groundImg.width, GROUND_HEIGHT);
+          ctx.restore();
+          
+          // 移动背景
+          game.backgroundX -= game.gameSpeed;
+          if (game.backgroundX <= -groundImg.width) {
+            game.backgroundX = 0;
+          }
+        }
+      } else {
+        // 备用绘制方法
+        ctx.fillStyle = "#333";
+        ctx.fillRect(0, CANVAS_HEIGHT - GROUND_HEIGHT, CANVAS_WIDTH, GROUND_HEIGHT);
+      }
+    };
+    
+    // 更新恐龙状态
+    const updateDino = () => {
+      const game = gameRef.current;
+      const dino = game.dino;
+      
+      // 更新跳跃
+      if (dino.jumping) {
+        dino.velocity += GAME_GRAVITY;
+        dino.y += dino.velocity;
+        
+        if (dino.y >= CANVAS_HEIGHT - DINO_HEIGHT - GROUND_HEIGHT) {
+          dino.y = CANVAS_HEIGHT - DINO_HEIGHT - GROUND_HEIGHT;
+          dino.jumping = false;
+          dino.velocity = 0;
+          dino.running = true;
+        }
+      }
+      
+      // 更新动画帧
+      dino.stepIndex++;
+      if (dino.stepIndex >= 20) {
+        dino.stepIndex = 0;
+      }
+    };
+    
+    // 绘制恐龙
+    const drawDino = (ctx: CanvasRenderingContext2D) => {
+      const game = gameRef.current;
+      const dino = game.dino;
+      
+      if (gameImages.dino) {
+        let dinoImg;
+        
+        if (!gameActive && game.gameOver && gameImages.dino.dead) {
+          // 游戏结束时显示死亡的恐龙
+          dinoImg = gameImages.dino.dead;
+        } else if (!gameActive && !game.gameOver && gameImages.dino.start) {
+          // 游戏未开始时显示静止的恐龙
+          dinoImg = gameImages.dino.start;
+        } else if (dino.jumping && gameImages.dino.jump) {
+          // 跳跃图像
+          dinoImg = gameImages.dino.jump;
+        } else if (dino.ducking && gameImages.dino.duck.length > 0) {
+          // 下蹲图像
+          const duckIndex = Math.floor(dino.stepIndex / 10) % gameImages.dino.duck.length;
+          dinoImg = gameImages.dino.duck[duckIndex];
+          
+          // 调整下蹲时的高度
+          dino.height = DINO_HEIGHT * 0.7;
+          dino.y = CANVAS_HEIGHT - dino.height - GROUND_HEIGHT;
+        } else if (gameImages.dino.run.length > 0) {
+          // 奔跑图像
+          const runIndex = Math.floor(dino.stepIndex / 10) % gameImages.dino.run.length;
+          dinoImg = gameImages.dino.run[runIndex];
+          
+          // 恢复正常高度
+          dino.height = DINO_HEIGHT;
+        }
+        
+        if (dinoImg) {
+          ctx.drawImage(dinoImg, dino.x, dino.y, dino.width, dino.height);
+        }
+      } else {
+        // 备用绘制方法
+        ctx.fillStyle = "#4a9";
+        ctx.fillRect(dino.x, dino.y, dino.width, dino.height);
+      }
+    };
+    
+    // 更新障碍物
+    const updateObstacles = () => {
+      const game = gameRef.current;
+      // 随机生成新障碍物
+      if (game.obstacles.length === 0 || 
+          game.obstacles[game.obstacles.length - 1].x < CANVAS_WIDTH - 200 - Math.random() * 300) {
+        
+        const obstacleType = Math.random();
+        
+        if (obstacleType < 0.4) {
+          // 小仙人掌
+          const subType = Math.floor(Math.random() * 3);
+          game.obstacles.push({
+            type: 'smallCactus',
+            subType,
+            x: CANVAS_WIDTH,
+            y: CANVAS_HEIGHT - OBSTACLE_HEIGHT - GROUND_HEIGHT,
+            width: OBSTACLE_WIDTH,
+            height: OBSTACLE_HEIGHT,
+          });
+        } else if (obstacleType < 0.8) {
+          // 大仙人掌
+          const subType = Math.floor(Math.random() * 3);
+          game.obstacles.push({
+            type: 'largeCactus',
+            subType,
+            x: CANVAS_WIDTH,
+            y: CANVAS_HEIGHT - OBSTACLE_HEIGHT * 1.2 - GROUND_HEIGHT,
+            width: OBSTACLE_WIDTH * 1.2,
+            height: OBSTACLE_HEIGHT * 1.2,
+          });
+        } else {
+          // 鸟
+          const birdHeights = [CANVAS_HEIGHT - OBSTACLE_HEIGHT * 2 - GROUND_HEIGHT, 
+                             CANVAS_HEIGHT - OBSTACLE_HEIGHT * 1.5 - GROUND_HEIGHT,
+                             CANVAS_HEIGHT - OBSTACLE_HEIGHT - GROUND_HEIGHT];
+          const yPos = birdHeights[Math.floor(Math.random() * birdHeights.length)];
+          
+          game.obstacles.push({
+            type: 'bird',
+            subType: 0,
+            x: CANVAS_WIDTH,
+            y: yPos,
+            width: OBSTACLE_WIDTH * 1.2,
+            height: OBSTACLE_HEIGHT * 0.8,
+            frameIndex: 0,
+          });
+        }
+      }
+      
+      // 更新现有障碍物
+      for (let i = 0; i < game.obstacles.length; i++) {
+        const obstacle = game.obstacles[i];
+        obstacle.x -= game.gameSpeed;
+        
+        // 更新鸟的动画
+        if (obstacle.type === 'bird') {
+          if (obstacle.frameIndex === undefined) obstacle.frameIndex = 0;
+          obstacle.frameIndex++;
+          if (obstacle.frameIndex >= 20) obstacle.frameIndex = 0;
+        }
+        
+        // 移除屏幕外的障碍物
+        if (obstacle.x + obstacle.width < 0) {
+          game.obstacles.splice(i, 1);
+          i--;
+        }
+      }
+    };
+    
+    // 绘制障碍物
+    const drawObstacles = (ctx: CanvasRenderingContext2D) => {
+      const game = gameRef.current;
+      for (const obstacle of game.obstacles) {
+        if (gameImages.obstacles && gameImages.obstacles[obstacle.type]) {
+          const obstacleImages = gameImages.obstacles[obstacle.type];
+          
+          if (obstacle.type === 'bird' && obstacleImages.length > 0) {
+            // 鸟的动画
+            const birdIndex = Math.floor((obstacle.frameIndex || 0) / 10) % obstacleImages.length;
+            ctx.drawImage(obstacleImages[birdIndex], obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+          } else if (obstacleImages.length > obstacle.subType) {
+            // 仙人掌
+            ctx.drawImage(obstacleImages[obstacle.subType], obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+          }
+        } else {
+          // 备用绘制方法
+          ctx.fillStyle = "#b44";
+          ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+        }
+      }
+    };
+    
+    // 更新云朵
+    const updateClouds = () => {
+      // 随机生成新云朵
+      if (Math.random() < 0.005 || game.clouds.length === 0) {
+        game.clouds.push({
+          x: CANVAS_WIDTH,
+          y: Math.random() * 100 + 50,
+          width: 70,
+          height: 40,
+        });
+      }
+      
+      // 更新现有云朵
+      for (let i = 0; i < game.clouds.length; i++) {
+        const cloud = game.clouds[i];
+        cloud.x -= game.gameSpeed * 0.5; // 云朵移动速度较慢
+        
+        // 移除屏幕外的云朵
+        if (cloud.x + cloud.width < 0) {
+          game.clouds.splice(i, 1);
+          i--;
+        }
+      }
+    };
+    
+    // 绘制云朵
+    const drawClouds = (ctx: CanvasRenderingContext2D) => {
+      const game = gameRef.current;
+      for (const cloud of game.clouds) {
+        if (gameImages.other?.cloud) {
+          ctx.drawImage(gameImages.other.cloud, cloud.x, cloud.y, cloud.width, cloud.height);
+        } else {
+          // 备用绘制方法
+          ctx.fillStyle = "#fff";
+          ctx.fillRect(cloud.x, cloud.y, cloud.width, cloud.height);
+        }
+      }
+    };
+    
+    // 检测碰撞
+    const checkCollisions = () => {
+      const dino = game.dino;
+      
+      // 碰撞检测的边界调整（使碰撞盒比视觉模型小一些，提供更好的游戏体验）
+      const dinoHitbox = {
+        x: dino.x + 5,
+        y: dino.y + 5,
+        width: dino.width - 10,
+        height: dino.height - 10,
+      };
+      
+      for (const obstacle of game.obstacles) {
+        const obstacleHitbox = {
+          x: obstacle.x + 5,
+          y: obstacle.y + 5,
+          width: obstacle.width - 10,
+          height: obstacle.height - 10,
+        };
+        
+        if (
+          dinoHitbox.x < obstacleHitbox.x + obstacleHitbox.width &&
+          dinoHitbox.x + dinoHitbox.width > obstacleHitbox.x &&
+          dinoHitbox.y < obstacleHitbox.y + obstacleHitbox.height &&
+          dinoHitbox.y + dinoHitbox.height > obstacleHitbox.y
+        ) {
+          return true; // 发生碰撞
+        }
+      }
+      
+      return false; // 没有碰撞
+    };
+    
+    // 更新分数
+    const updateScore = () => {
+      const game = gameRef.current;
+      game.score += 0.1;
+      
+      // 每100分增加游戏速度
+      if (Math.floor(game.score) % 100 === 0 && Math.floor(game.score) > 0) {
+        game.gameSpeed += 0.5;
+        console.log(`Speed increased to ${game.gameSpeed}`);
+        
+        // 播放得分音效
+        try {
+          const audio = new Audio('/assets/Other/point.mp3');
+          audio.play().catch(e => console.log('Audio play failed:', e));
+        } catch (e) {
+          console.log('Audio not supported:', e);
+        }
+      }
+      
+      setScore(Math.floor(game.score));
+    };
+    
+    // 绘制分数
+    const drawScore = (ctx: CanvasRenderingContext2D) => {
+      const game = gameRef.current;
+      ctx.fillStyle = "#000";
+      ctx.font = "20px Arial";
+      ctx.fillText(`Score: ${Math.floor(game.score)}`, CANVAS_WIDTH - 140, 30);
+      
+      if (highScore > 0) {
+        ctx.fillText(`High Score: ${highScore}`, CANVAS_WIDTH - 300, 30);
+      }
+    };
+    
+    // 开始游戏循环
+    const game = gameRef.current;
+    game.animationFrame = requestAnimationFrame(gameLoop);
+  };
+
+  // 处理键盘和触摸输入
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!gameActive.current) return;
+      
+      const game = gameRef.current;
+      
+      if ((e.code === "Space" || e.code === "ArrowUp") && !game.dino.jumping) {
+        // 跳跃
+        game.dino.jumping = true;
+        game.dino.ducking = false;
+        game.dino.running = false;
+        game.dino.velocity = -JUMP_VELOCITY;
+        
+        // 播放跳跃音效
+        try {
+          const audio = new Audio('/assets/Other/jump.mp3');
+          audio.play().catch(e => console.log('Audio play failed:', e));
+        } catch (e) {
+          console.log('Audio not supported:', e);
+        }
+        
+        // 防止页面滚动
+        e.preventDefault();
+      } else if (e.code === "ArrowDown" && !game.dino.jumping) {
+        // 下蹲
+        game.dino.ducking = true;
+        game.dino.running = false;
+        game.dino.jumping = false;
+        
+        e.preventDefault();
+      }
+    };
+    
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (!gameActive.current) return;
+      
+      const game = gameRef.current;
+      
+      if (e.code === "ArrowDown") {
+        // 停止下蹲
+        game.dino.ducking = false;
+        game.dino.running = true;
+      }
+      
+      e.preventDefault();
+    };
+    
+    // 触摸屏幕事件处理
+    const handleTouchStart = (e: TouchEvent) => {
+      if (!gameActive.current) return;
+      
+      const game = gameRef.current;
+      const touch = e.touches[0];
+      const canvas = canvasRef.current;
+      
+      if (!canvas) return;
+      
+      // 获取触摸位置相对于画布的坐标
+      const rect = canvas.getBoundingClientRect();
+      const y = touch.clientY - rect.top;
+      
+      // 如果触摸在画布下半部分，则下蹲，否则跳跃
+      if (y > rect.height / 2 && !game.dino.jumping) {
+        // 下蹲
+        game.dino.ducking = true;
+        game.dino.running = false;
+        game.dino.jumping = false;
+      } else if (!game.dino.jumping) {
+        // 跳跃
+        game.dino.jumping = true;
+        game.dino.ducking = false;
+        game.dino.running = false;
+        game.dino.velocity = -JUMP_VELOCITY;
+        
+        // 播放跳跃音效
+        try {
+          const audio = new Audio('/assets/Other/jump.mp3');
+          audio.play().catch(e => console.log('Audio play failed:', e));
+        } catch (e) {
+          console.log('Audio not supported:', e);
+        }
+      }
+      
+      e.preventDefault();
+    };
+    
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (!gameActive.current) return;
+      
+      const game = gameRef.current;
+      
+      // 停止下蹲
+      if (game.dino.ducking) {
+        game.dino.ducking = false;
+        game.dino.running = true;
+      }
+      
+      e.preventDefault();
+    };
+    
+    // 添加事件监听器
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    
+    if (canvasRef.current) {
+      canvasRef.current.addEventListener("touchstart", handleTouchStart as EventListener);
+      canvasRef.current.addEventListener("touchend", handleTouchEnd as EventListener);
+    }
+    
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+      
+      if (canvasRef.current) {
+        canvasRef.current.removeEventListener("touchstart", handleTouchStart as EventListener);
+        canvasRef.current.removeEventListener("touchend", handleTouchEnd as EventListener);
+      }
+    };
+  }, [gameActive]);
+
+  return (
+    <div className="flex flex-col items-center">
+      <div className="w-full max-w-3xl bg-base-200 rounded-lg shadow-lg p-6 mb-6">
+        <h2 className="text-2xl font-bold mb-4 text-center">Dino Runner Game</h2>
+        
+        {isConnected ? (
+          <>
+            <div className="flex justify-between mb-4">
+              <div>
+                <p className="text-sm opacity-70">Connected Address:</p>
+                <Address address={connectedAddress} />
+              </div>
+              <div>
+                <p className="text-sm opacity-70">Your Balance:</p>
+                <Balance address={connectedAddress} />
+              </div>
+            </div>
+            
+            <div className="flex justify-between mb-4">
+              <div>
+                <p>Current Score: {score}</p>
+                <p>High Score: {highScore}</p>
+              </div>
+              <div>
+                <p className="font-bold">Achievements:</p>
+                <div className="flex gap-2">
+                  <span className={`badge ${achievements.bronze ? "badge-success" : "badge-outline"}`}>Bronze</span>
+                  <span className={`badge ${achievements.silver ? "badge-success" : "badge-outline"}`}>Silver</span>
+                  <span className={`badge ${achievements.gold ? "badge-success" : "badge-outline"}`}>Gold</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="border-2 border-base-300 rounded-md overflow-hidden mb-4 relative">
+              {isLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-80 z-10">
+                  <div className="flex flex-col items-center">
+                    <span className="loading loading-spinner loading-lg"></span>
+                    <p className="mt-2">Loading game assets...</p>
+                  </div>
+                </div>
+              )}
+              <canvas 
+                ref={canvasRef} 
+                width={CANVAS_WIDTH} 
+                height={CANVAS_HEIGHT} 
+                className="bg-white" 
+                style={{ touchAction: 'none' }} // 防止移动设备上的滑动手势
+              />
+            </div>
+            
+            <div className="flex justify-center">
+              {!gameActive && (
+                <button
+                  className="btn btn-primary"
+                  onClick={handleStartGame}
+                  disabled={isStartingGame || gameActive}
+                >
+                  {isStartingGame ? (
+                    <>
+                      <span className="loading loading-spinner"></span>
+                      Starting...
+                    </>
+                  ) : (
+                    "Start Game (0.01 MON)"
+                  )}
+                </button>
+              )}
+              {gameActive && (
+                <div className="text-center">
+                  <p className="mb-2 font-bold">Game is active!</p>
+                  <p className="text-sm">Press SPACE or UP ARROW to jump</p>
+                  <p className="text-sm">Press DOWN ARROW to duck</p>
+                  <p className="text-sm">On mobile: Tap top half to jump, bottom half to duck</p>
+                </div>
+              )}
+            </div>
+            
+            <div className="mt-4 text-sm opacity-70">
+              <p>🥉 Bronze: Score 100+ points</p>
+              <p>🥈 Silver: Score 300+ points</p>
+              <p>🥇 Gold: Score 500+ points</p>
+            </div>
+          </>
+        ) : (
+          <div className="text-center py-6">
+            <p className="mb-4">Please connect your wallet to play!</p>
+            <p className="text-sm opacity-70">
+              This game requires a connected wallet and 0.01 MON to play. You will be able to mint NFT achievements based
+              on your score!
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default DinoGame;

@@ -1,21 +1,34 @@
-# 🏗 Scaffold-ETH 2
+# 🦖 Web3 Dino Runner Game
 
 <h4 align="center">
+  <a href="https://x.com/Alfredfuuu">Twitter</a> |
   <a href="https://docs.scaffoldeth.io">Documentation</a> |
   <a href="https://scaffoldeth.io">Website</a>
 </h4>
 
-🧪 An open-source, up-to-date toolkit for building decentralized applications (dapps) on the Ethereum blockchain. It's designed to make it easier for developers to create and deploy smart contracts and build user interfaces that interact with those contracts.
+🎮 A Web3-enabled Dino Runner game built with Scaffold-ETH 2. Players can spend crypto to play the game and earn NFT achievements based on their scores. The game features dynamic difficulty scaling, animated sprites, and a responsive user interface.
 
-⚙️ Built using NextJS, RainbowKit, Foundry, Wagmi, Viem, and Typescript.
+⚙️ Built using NextJS, RainbowKit, Foundry, Wagmi, Viem, and Typescript with HTML5 Canvas for game rendering.
 
-- ✅ **Contract Hot Reload**: Your frontend auto-adapts to your smart contract as you edit it.
-- 🪝 **[Custom hooks](https://docs.scaffoldeth.io/hooks/)**: Collection of React hooks wrapper around [wagmi](https://wagmi.sh/) to simplify interactions with smart contracts with typescript autocompletion.
-- 🧱 [**Components**](https://docs.scaffoldeth.io/components/): Collection of common web3 components to quickly build your frontend.
-- 🔥 **Burner Wallet & Local Faucet**: Quickly test your application with a burner wallet and local faucet.
-- 🔐 **Integration with Wallet Providers**: Connect to different wallet providers and interact with the Ethereum network.
+### Game Features
 
-![Debug Contracts tab](https://github.com/scaffold-eth/scaffold-eth-2/assets/55535804/b237af0c-5027-4849-a5c1-2e31495cccb1)
+- 🏃 **Dynamic Difficulty**: The game scales in difficulty as your score increases
+- 🏆 **NFT Achievements**: Earn achievements at 5,000, 10,000, and 15,000 points
+- 🔄 **Animated Sprites**: Dino animations change between running, jumping, and ducking states
+- 🎨 **Responsive Design**: Beautiful UI that adapts to both light and dark modes
+- 🌐 **Web3 Integration**: Connect your wallet to play and record achievements on-chain
+
+### Tech Stack
+
+- ✅ **NextJS App Router**: Modern React framework with efficient client-side routing
+- 🪝 **Custom Game Engine**: Purpose-built game loop and physics for the dino runner game
+- 🧱 **Tailwind CSS**: Utility-first CSS framework for responsive design
+- 🔥 **Web3 Integration**: Using wagmi hooks for blockchain interactions
+- 🔐 **Wallet Connection**: Easy connection to MetaMask and other popular wallets
+
+![Dino Game Screenshot](/packages/nextjs/public/assets/DinoWallpaper.png)
+
+*Screenshot of the Dino Runner game in action*
 
 ## Requirements
 
@@ -69,12 +82,56 @@ Run smart contract test with `yarn foundry:test`
 
 ## Documentation
 
-Visit our [docs](https://docs.scaffoldeth.io) to learn how to start building with Scaffold-ETH 2.
+## AI-Assisted Development
 
-To know more about its features, check out our [website](https://scaffoldeth.io).
+This project was developed in collaboration with AI assistants. Here are some key prompts and strategies used during development:
 
-## Contributing to Scaffold-ETH 2
+### Game Mechanics Implementation
 
-We welcome contributions to Scaffold-ETH 2!
+```
+help me implement dynamic difficulty adjustments based on the player's score
+and improve the dinosaur's animation with alternating frames for running and ducking
+```
 
-Please see [CONTRIBUTING.MD](https://github.com/scaffold-eth/scaffold-eth-2/blob/main/CONTRIBUTING.md) for more information and guidelines for contributing to Scaffold-ETH 2.
+### Performance Optimization
+
+```
+optimize the game loop to prevent lag during animation and make obstacle generation more efficient
+```
+
+### Responsive Design
+
+```
+optimize the homepage design with dino-background.png as background
+and ensure components adapt to both light and dark mode themes
+```
+
+### Achievement System
+
+```
+update Bronze achievement to require 5,000 points
+update Silver achievement to require 10,000 points
+update Gold achievement to require 15,000 points
+```
+
+## Game Parameters
+
+Key parameters that can be adjusted to modify game difficulty:
+
+```typescript
+// Initial game parameters (will increase with difficulty)
+export const INITIAL_OBSTACLE_SPEED = 6;
+export const MAX_OBSTACLE_SPEED = 15;
+export const INITIAL_OBSTACLE_FREQUENCY = 100; // Lower is more frequent
+export const MIN_OBSTACLE_FREQUENCY = 40; // Maximum frequency (minimum frames between obstacles)
+```
+
+## Contributing
+
+We welcome contributions to the Web3 Dino Runner Game!
+
+Please see [CONTRIBUTING.MD](https://github.com/scaffold-eth/scaffold-eth-2/blob/main/CONTRIBUTING.md) for more information and guidelines for contributing to this project.
+
+## Acknowledgments
+
+This project is built upon Scaffold-ETH 2, an excellent toolkit for developing web3 applications. The dinosaur game mechanic is inspired by the Chrome offline dinosaur game, with additional features and Web3 integration.

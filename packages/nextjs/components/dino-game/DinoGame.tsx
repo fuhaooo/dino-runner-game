@@ -19,11 +19,14 @@ import {
   GRAVITY,
   OBSTACLE_WIDTH,
   OBSTACLE_HEIGHT,
-  OBSTACLE_SPEED,
-  OBSTACLE_FREQUENCY,
+  INITIAL_OBSTACLE_SPEED,
+  INITIAL_OBSTACLE_FREQUENCY,
+  MAX_OBSTACLE_SPEED,
+  MIN_OBSTACLE_FREQUENCY,
   GameState,
   GameImages,
-  Obstacle
+  Obstacle,
+  calculateGameDifficulty
 } from "./GameEngine";
 
 // Import renderer
@@ -67,6 +70,12 @@ const DinoGame = ({ gameContractAddress, nftContractAddress }: DinoGameProps) =>
     isJumping: false,
     isDucking: false,
     showRestart: false, // Initially hide restart UI
+    // Current difficulty parameters
+    currentSpeed: INITIAL_OBSTACLE_SPEED,
+    currentFrequency: INITIAL_OBSTACLE_FREQUENCY,
+    // Animation enhancements
+    legPosition: 'left',
+    animationSpeed: 5, // Controls how fast animations cycle
     achievements: {
       bronze: false,
       silver: false,
@@ -235,11 +244,22 @@ const DinoGame = ({ gameContractAddress, nftContractAddress }: DinoGameProps) =>
             }
           }
         
-          // Increment frame count
+          // Increment frame count and animation frame
           newGameState.frameCount++;
+          newGameState.animationFrame++;
+          
+          // Update leg position for running animation every few frames
+          if (newGameState.animationFrame % newGameState.animationSpeed === 0) {
+            newGameState.legPosition = newGameState.legPosition === 'left' ? 'right' : 'left';
+          }
+          
+          // Update difficulty based on score
+          const { currentSpeed, currentFrequency } = calculateGameDifficulty(newGameState.score);
+          newGameState.currentSpeed = currentSpeed;
+          newGameState.currentFrequency = currentFrequency;
           
           // Generate obstacles with improved logic
-          if (newGameState.frameCount % OBSTACLE_FREQUENCY === 0 && !newGameState.gameOver) {
+          if (newGameState.frameCount % newGameState.currentFrequency === 0 && !newGameState.gameOver) {
             console.log('Generating obstacle at frame:', newGameState.frameCount);
             
             // Check distance to last obstacle to prevent overlapping
@@ -274,6 +294,9 @@ const DinoGame = ({ gameContractAddress, nftContractAddress }: DinoGameProps) =>
               // Ensure we don't exceed the array bounds
               const largeLength = Math.max(1, gameImages.obstacles.cactusLarge.length);
               const smallLength = Math.max(1, gameImages.obstacles.cactusSmall.length);
+              
+              // More variation with higher speed
+              const variantOffset = Math.floor(newGameState.currentSpeed - INITIAL_OBSTACLE_SPEED);
               
               const cactusVariant = isBigCactus ? 
                 `large${Math.floor(Math.random() * largeLength) + 1}` : 
@@ -313,9 +336,9 @@ const DinoGame = ({ gameContractAddress, nftContractAddress }: DinoGameProps) =>
             }
           }
         
-          // Move obstacles
+          // Move obstacles with variable speed based on difficulty
           for (let i = 0; i < newGameState.obstacles.length; i++) {
-            newGameState.obstacles[i].x -= OBSTACLE_SPEED;
+            newGameState.obstacles[i].x -= newGameState.currentSpeed;
             
             // Remove obstacles that are off screen
             if (newGameState.obstacles[i].x + OBSTACLE_WIDTH < 0) {
@@ -510,9 +533,9 @@ const DinoGame = ({ gameContractAddress, nftContractAddress }: DinoGameProps) =>
     
     // Draw ground
     if (gameImages.environment.ground) {
-      // Calculate ground scroll position based on frame count
+      // Calculate ground scroll position based on frame count and current speed
       const currentGame = gameRef.current;
-      const groundScroll = -(currentGame.frameCount * OBSTACLE_SPEED) % CANVAS_WIDTH;
+      const groundScroll = -(currentGame.frameCount * currentGame.currentSpeed) % CANVAS_WIDTH;
       
       // Draw two copies of the ground to create seamless scrolling
       ctx.drawImage(gameImages.environment.ground, groundScroll, CANVAS_HEIGHT - GROUND_HEIGHT, CANVAS_WIDTH, GROUND_HEIGHT);

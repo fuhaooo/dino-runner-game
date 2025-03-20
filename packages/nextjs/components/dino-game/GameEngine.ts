@@ -14,8 +14,18 @@ export const JUMP_VELOCITY = 15;
 export const GRAVITY = 0.8;
 export const OBSTACLE_WIDTH = 30;
 export const OBSTACLE_HEIGHT = 50;
-export const OBSTACLE_SPEED = 6;
-export const OBSTACLE_FREQUENCY = 100; // Lower is more frequent
+
+// Initial game parameters (will increase with difficulty)
+export const INITIAL_OBSTACLE_SPEED = 6;
+export const MAX_OBSTACLE_SPEED = 15;
+export const INITIAL_OBSTACLE_FREQUENCY = 100; // Lower is more frequent
+export const MIN_OBSTACLE_FREQUENCY = 40; // Maximum frequency (minimum frames between obstacles)
+
+// Difficulty scaling parameters
+export const SPEED_INCREASE_INTERVAL = 500; // Increase speed every 500 points
+export const SPEED_INCREASE_AMOUNT = 0.5; // How much to increase speed each interval
+export const FREQUENCY_DECREASE_INTERVAL = 300; // Decrease frequency every 300 points
+export const FREQUENCY_DECREASE_AMOUNT = 5; // How much to decrease frequency each interval
 
 // Game state interfaces
 export interface Obstacle {
@@ -40,11 +50,18 @@ export interface GameState {
   isDucking: boolean;
   gameActive: boolean;
   isLoading: boolean;
+  // Current difficulty parameters
+  currentSpeed: number;
+  currentFrequency: number;
+  // Animation state for more dynamic animations
+  legPosition: 'left' | 'right';
+  animationSpeed: number; // Controls how fast animations cycle
   achievements: {
     bronze: boolean;
     silver: boolean;
     gold: boolean;
   };
+  showRestart: boolean; // Added from previous changes
 }
 
 export interface GameImages {
@@ -80,16 +97,34 @@ export const loadImage = (src: string): Promise<HTMLImageElement> => {
   });
 };
 
+// Calculate current game difficulty based on score
+export const calculateGameDifficulty = (score: number) => {
+  // Increase speed based on score
+  const speedIncrease = Math.floor(score / SPEED_INCREASE_INTERVAL) * SPEED_INCREASE_AMOUNT;
+  const currentSpeed = Math.min(INITIAL_OBSTACLE_SPEED + speedIncrease, MAX_OBSTACLE_SPEED);
+  
+  // Decrease obstacle frequency based on score (making obstacles appear more often)
+  const frequencyDecrease = Math.floor(score / FREQUENCY_DECREASE_INTERVAL) * FREQUENCY_DECREASE_AMOUNT;
+  const currentFrequency = Math.max(INITIAL_OBSTACLE_FREQUENCY - frequencyDecrease, MIN_OBSTACLE_FREQUENCY);
+  
+  return { currentSpeed, currentFrequency };
+};
+
 // Generate a random obstacle
-export const generateObstacle = (gameImages: GameImages): Obstacle => {
+export const generateObstacle = (gameImages: GameImages, currentSpeed: number = INITIAL_OBSTACLE_SPEED): Obstacle => {
   const isBird = Math.random() > 0.7; // 30% chance of bird
   
   if (isBird) {
     // Bird obstacle
     const birdHeight = 50;
+    // Birds at different heights based on current speed (higher speeds = more challenging positions)
+    const birdPositionFactor = Math.min((currentSpeed - INITIAL_OBSTACLE_SPEED) / 2, 2);
     const birdY = Math.random() > 0.5 
-      ? CANVAS_HEIGHT - GROUND_HEIGHT - birdHeight - 40 // Flying high
-      : CANVAS_HEIGHT - GROUND_HEIGHT - birdHeight; // Flying low
+      ? CANVAS_HEIGHT - GROUND_HEIGHT - birdHeight - 40 - (birdPositionFactor * 10) // Flying high
+      : CANVAS_HEIGHT - GROUND_HEIGHT - birdHeight - (birdPositionFactor * 5); // Flying low
+    
+    // Use bird variants for animation 
+    const birdVariant = Math.random() > 0.5 ? 'flying1' : 'flying2';
     
     return {
       x: CANVAS_WIDTH,
@@ -97,14 +132,16 @@ export const generateObstacle = (gameImages: GameImages): Obstacle => {
       width: 60,
       height: birdHeight,
       type: 'bird',
-      variant: 'bird1'
+      variant: birdVariant
     };
   } else {
     // Cactus obstacle
     const isLarge = Math.random() > 0.5;
+    
+    // Use existing logic for cactus variants
     const cactusVariant = isLarge 
-      ? `large${Math.floor(Math.random() * gameImages.obstacles.cactusLarge.length) + 1}` 
-      : `small${Math.floor(Math.random() * gameImages.obstacles.cactusSmall.length) + 1}`;
+      ? `large${Math.floor(Math.random() * Math.max(1, gameImages.obstacles.cactusLarge.length)) + 1}` 
+      : `small${Math.floor(Math.random() * Math.max(1, gameImages.obstacles.cactusSmall.length)) + 1}`;
     
     const cactusHeight = isLarge ? 70 : 50;
     

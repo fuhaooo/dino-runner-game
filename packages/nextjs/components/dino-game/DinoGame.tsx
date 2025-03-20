@@ -7,7 +7,6 @@ import { Address, Balance } from "~~/components/scaffold-eth";
 
 // Import components
 import GameControls from "./GameControls";
-import GameUI from "./GameUI";
 
 // Import game engine
 import { 
@@ -53,6 +52,7 @@ const DinoGame = ({ gameContractAddress, nftContractAddress }: DinoGameProps) =>
     dinoVelocity: number;
     isJumping: boolean;
     isDucking: boolean;
+    showRestart: boolean; // Added new property for UI control
   }>({
     obstacles: [], 
     frameCount: 0,
@@ -66,6 +66,7 @@ const DinoGame = ({ gameContractAddress, nftContractAddress }: DinoGameProps) =>
     dinoVelocity: 0,
     isJumping: false,
     isDucking: false,
+    showRestart: false, // Initially hide restart UI
     achievements: {
       bronze: false,
       silver: false,
@@ -237,13 +238,33 @@ const DinoGame = ({ gameContractAddress, nftContractAddress }: DinoGameProps) =>
           // Increment frame count
           newGameState.frameCount++;
           
-          // Generate obstacles
+          // Generate obstacles with improved logic
           if (newGameState.frameCount % OBSTACLE_FREQUENCY === 0 && !newGameState.gameOver) {
             console.log('Generating obstacle at frame:', newGameState.frameCount);
-            // Randomly choose obstacle type
-            const obstacleType = Math.random() < 0.8 ? 'cactus' : 'bird';
             
-            if (obstacleType === 'cactus') {
+            // Check distance to last obstacle to prevent overlapping
+            const lastObstacle = newGameState.obstacles[newGameState.obstacles.length - 1];
+            const minDistance = CANVAS_WIDTH / 2; // Minimum safe distance between obstacles
+            
+            // Only generate a new obstacle if there's enough space or no obstacles yet
+            if (!lastObstacle || (lastObstacle && lastObstacle.x < CANVAS_WIDTH - minDistance)) {
+              // Determine obstacle type with context awareness
+              // If last obstacle was a bird, make this one a cactus and vice versa
+              // This ensures variety and prevents impossible scenarios
+              let obstacleType;
+              
+              if (!lastObstacle) {
+                // First obstacle is usually a cactus (easier)
+                obstacleType = 'cactus';
+              } else if (lastObstacle.type === 'bird') {
+                // Last was bird, so this should be cactus
+                obstacleType = 'cactus';
+              } else {
+                // Last was cactus, can be either but bird is less likely
+                obstacleType = Math.random() < 0.7 ? 'cactus' : 'bird';
+              }
+            
+              if (obstacleType === 'cactus') {
               // Randomly choose between small and large cactus
               const isBigCactus = Math.random() < 0.5;
               const cactusHeight = isBigCactus ? OBSTACLE_HEIGHT * 1.5 : OBSTACLE_HEIGHT;
@@ -271,9 +292,10 @@ const DinoGame = ({ gameContractAddress, nftContractAddress }: DinoGameProps) =>
               const birdHeight = DINO_HEIGHT * 0.8;
               const birdWidth = DINO_WIDTH * 1.2;
               
-              // Random bird height - either high (need to duck) or low (need to jump)
+              // New bird height logic - birds should be higher so player needs to duck
+              // Birds should be at either middle height (need to duck) or high (also need to duck)
               const birdY = Math.random() < 0.5 ? 
-                CANVAS_HEIGHT - GROUND_HEIGHT - birdHeight - 10 : // Low bird
+                CANVAS_HEIGHT - GROUND_HEIGHT - DINO_HEIGHT - birdHeight / 2 : // Middle bird (head height)
                 CANVAS_HEIGHT - GROUND_HEIGHT - DINO_HEIGHT - birdHeight - 20; // High bird
               
               // Create bird variant
@@ -287,6 +309,7 @@ const DinoGame = ({ gameContractAddress, nftContractAddress }: DinoGameProps) =>
                 type: 'bird',
                 variant: birdVariant
               });
+              }
             }
           }
         
@@ -305,8 +328,11 @@ const DinoGame = ({ gameContractAddress, nftContractAddress }: DinoGameProps) =>
           if (!newGameState.gameOver) {
             for (const obstacle of newGameState.obstacles) {
               if (checkCollision(obstacle, newGameState)) { // Use newGameState here instead of gameState
+                console.log('Collision detected with obstacle type:', obstacle.type);
                 newGameState.gameOver = true;
                 newGameState.gameActive = false;
+                // Set a flag to show restart option
+                newGameState.showRestart = true;
                 break;
               }
             }
@@ -362,7 +388,6 @@ const DinoGame = ({ gameContractAddress, nftContractAddress }: DinoGameProps) =>
           
           return newGameState;
         });
-        
       }
       
       // Continue game loop if not game over
@@ -570,17 +595,14 @@ const DinoGame = ({ gameContractAddress, nftContractAddress }: DinoGameProps) =>
   const handleStartGame = async () => {
     setIsStartingGame(true);
     try {
-      // For testing purposes - skip contract call temporarly to debug
-      // Uncomment this for production
-      /*
+      // Call the contract to start the game with payment
       await startGameWrite({
         functionName: "startGame",
         value: BigInt(10000000000000000), // 0.01 ETH in wei
       });
-      */
       
-      // Simulate successful payment for testing
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Wait a moment for UI update
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       console.log('Payment successful, starting game...');
       
@@ -610,7 +632,8 @@ const DinoGame = ({ gameContractAddress, nftContractAddress }: DinoGameProps) =>
           },
           gameActive: true,
           obstacles: [],
-          gameOver: false
+          gameOver: false,
+          showRestart: false
         };
       });
       
@@ -698,6 +721,34 @@ const DinoGame = ({ gameContractAddress, nftContractAddress }: DinoGameProps) =>
               </div>
             </div>
             
+            {/* Ready to Run UI - 放置在画布外 */}
+            {!gameState.gameActive && !isStartingGame && !gameState.gameOver && (
+              <div className="mb-4 bg-base-100 p-5 rounded-lg shadow-lg">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center">
+                    <img src="/assets/Dino/DinoStart.png" alt="Dino" className="h-16 mr-3" />
+                    <div className="text-left">
+                      <h3 className="text-xl font-bold">Ready to Run?</h3>
+                      <p className="text-sm">Avoid obstacles and earn achievements!</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end">
+                    <button
+                      className="btn btn-primary mb-2"
+                      onClick={handleStartGame}
+                      disabled={isStartingGame}
+                    >
+                      Start Game (0.01 MON)
+                    </button>
+                    <div className="text-xs flex gap-2">
+                      <span><kbd className="kbd kbd-xs">SPACE</kbd> or <kbd className="kbd kbd-xs">↑</kbd> Jump</span>
+                      <span><kbd className="kbd kbd-xs">↓</kbd> Duck</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             <div className="rounded-lg overflow-hidden mb-4 relative shadow-md w-full p-4" 
                  style={{ 
                    backgroundImage: "url('/assets/DinoWallpaper.png')", 
@@ -732,7 +783,7 @@ const DinoGame = ({ gameContractAddress, nftContractAddress }: DinoGameProps) =>
                   onClick={gameState.gameActive ? handleJump : undefined}
                 />
                 
-                {/* Game Over Screen */}
+                {/* Game Over Screen with Try Again button */}
                 {gameState.gameOver && (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="bg-base-100 bg-opacity-90 p-6 rounded-lg shadow-lg text-center">
@@ -750,7 +801,17 @@ const DinoGame = ({ gameContractAddress, nftContractAddress }: DinoGameProps) =>
                       )}
                       <button
                         className="btn btn-primary mt-4"
-                        onClick={handleStartGame}
+                        onClick={() => {
+                          // Reset game over state but don't start yet
+                          // Just show the Ready to Run screen
+                          setGameState(prev => {
+                            return {
+                              ...prev,
+                              gameOver: false,
+                              showRestart: false
+                            };
+                          });
+                        }}
                       >
                         Try Again
                       </button>
@@ -758,27 +819,7 @@ const DinoGame = ({ gameContractAddress, nftContractAddress }: DinoGameProps) =>
                   </div>
                 )}
                 
-                {/* Start Game UI */}
-                {!gameState.gameActive && !isStartingGame && !gameRef.current?.gameOver && (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="bg-base-100 bg-opacity-90 p-6 rounded-lg shadow-lg text-center">
-                      <img src="/assets/Dino/DinoStart.png" alt="Dino" className="h-24 mx-auto mb-4" />
-                      <h2 className="text-2xl font-bold mb-2">Ready to Run?</h2>
-                      <p className="mb-4">Avoid obstacles and earn achievements!</p>
-                      <button
-                        className="btn btn-primary"
-                        onClick={handleStartGame}
-                        disabled={isStartingGame}
-                      >
-                        Start Game (0.01 MON)
-                      </button>
-                      <div className="mt-4 text-sm">
-                        <p><kbd className="kbd kbd-sm">SPACE</kbd> or <kbd className="kbd kbd-sm">↑</kbd> to Jump</p>
-                        <p><kbd className="kbd kbd-sm">↓</kbd> to Duck</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                {/* 不再需要这里的Start Game UI，已移到画布外 */}
                 
                 {/* Loading Game UI */}
                 {isStartingGame && (

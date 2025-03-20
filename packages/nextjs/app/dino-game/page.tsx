@@ -34,13 +34,14 @@ const DinoGamePage: NextPage = () => {
             <span className="block text-xl mt-1 opacity-70">Powered by Web3</span>
           </h1>
 
+          {/* 使用key确保组件在isConnected变化时完全重新渲染 */}
           {isConnected ? (
-            <div className="mb-8 text-center">
+            <div key="connected" className="mb-8 text-center">
               <p className="mb-2">Ready to play? Start the game to begin your dino adventure!</p>
               <p className="text-sm opacity-70">Each game costs 0.01 MON. Earn achievements as NFTs based on your score.</p>
             </div>
           ) : (
-            <div className="alert alert-warning mb-8 max-w-2xl mx-auto">
+            <div key="not-connected" className="alert alert-warning mb-8 max-w-2xl mx-auto">
               <div className="flex-1">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
